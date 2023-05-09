@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use PhpParser\Node\Stmt\Return_;
 
+use function PHPUnit\Framework\isEmpty;
+
 class TaskController extends Controller
 {
     /**
@@ -118,7 +120,60 @@ class TaskController extends Controller
     }
     public function getbyassigment(){
         $user = Auth::user();
-        return task::where('assigment','LIKE',"%{$user->id}%")->get();
+        if(isset(request()->order)){
+            switch (request()->order) {
+                case 'dashboard':
+                    $taskscreated = task::where('assigment','LIKE',"%{$user->id}%")
+                                    ->where('status','created')
+                                    ->orderBy('due_date')
+                                    ->get();
+                    $slicecreated = $taskscreated->groupBy(function($data) {
+                                        return $data->workspace;
+                                    })->map(function ($group) {
+                                                        return $group->slice(0, 3);
+                                                    });
+                    $tasksfinished = task::where('assigment','LIKE',"%{$user->id}%")
+                                    ->where('status','finished')
+                                    ->orderBy('due_date')
+                                    ->get();
+                    $slicefinished = $tasksfinished->groupBy(function($data) {
+                                        return $data->workspace;
+                                    })
+                                    ->map(function ($group) {
+                                        return $group->slice(0, 3);
+                                    });
+                    $tasksonprogress = task::where('assigment','LIKE',"%{$user->id}%")
+                                    ->where('status','OnProgress')
+                                    ->orderBy('due_date')
+                                    ->get();
+                    $sliceonprogress = $tasksonprogress->groupBy(function($data) {
+                                        return $data->workspace;
+                                    })
+                                    ->map(function ($group) {
+                                        return $group->slice(0, 3);
+                                    });
+                    $result = [
+                        'created' => [
+                                        'data' => $slicecreated,
+                                        'count'  => $taskscreated->count()],
+                        'onprogress' => [
+                                        'data' => $sliceonprogress,
+                                        'count'  => $tasksonprogress->count()],
+                        'finished' => [
+                                        'data' => $slicefinished,
+                                        'count'  => $tasksfinished->count()]
+                        ];
+                    return $result;
+                    break;
+
+                default:
+                    # code...
+                    break;
+            }
+        }else{
+            // return "tidakada";
+            return task::where('assigment','LIKE',"%{$user->id}%")->get();
+        };
     }
     public function getbytask($id){
         $user = Auth::user();
